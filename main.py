@@ -14,19 +14,37 @@ FramePerSec = pygame.time.Clock()
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Rogue-like Game")
+font = pygame.font.Font('freesansbold.ttf', 32)
 
-
-class Player(pygame.sprite.Sprite):
-    def __init__(self):
+class Character(pygame.sprite.Sprite):
+    def __init__(self, x, y):
         super().__init__()
-        self.surface = pygame.Surface((20, 20))
-        self.surface.fill((255,0,0))
-        self.rect = self.surface.get_rect(center = (100, 220))
+        self.w = 20
+        self.h = 20
+        self.x = x
+        self.y = y
+        self.char = "@"
+        self.surface = pygame.Surface((self.w, self.h))
+        #self.surface.fill((255,0,0))
 
-player = Player()
+    def blit(self):
+        px = self.x * self.w
+        py = self.y * self.h
+        self.rect = self.surface.get_rect(center = (px, py))
+        text = font.render(sprite.char, True, (0,255,0), (0,0,255))
+        screen.blit(text, self.rect)
+
+
+class Player(Character):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+
+player = Player(3,6)
+player1 = Player(6,3)
 
 sprites = pygame.sprite.Group()
 sprites.add(player)
+sprites.add(player1)
 
 
 while True:
@@ -38,7 +56,7 @@ while True:
     screen.fill((255,255,255))
 
     for sprite in sprites:
-        screen.blit(sprite.surface, sprite.rect)
+        sprite.blit()
 
     pygame.display.update()
     FramePerSec.tick(FPS)
