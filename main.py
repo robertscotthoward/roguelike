@@ -1,5 +1,6 @@
 import functools
 import math
+import random
 import sys
 import pygame
 from pygame.locals import *
@@ -25,6 +26,7 @@ FramePerSec = pygame.time.Clock()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Rogue-like Game")
 
+rooms = []
 
 
 
@@ -64,17 +66,42 @@ def calcWindow():
 
 # ================================================================================
 def makeRoomRectangle(left, top, width, height):
-    for x in range(left, left + wall_width):
-        wall = Thing(x, top, "#")
+    char = "#"
+    walls = []
+    for x in range(left, left + room_width):
+        wall = Thing(x, top, char)
         world.add(wall)
-        wall = Thing(x, top + wall_height - 1, "#")
-        world.add(wall)
-    for y in range(top + 1, top + wall_height - 1):
-        wall = Thing(left, y, "#")
-        world.add(wall)
-        wall = Thing(left + wall_width - 1, y, "#")
-        world.add(wall)
+        walls.append(wall)
 
+        wall = Thing(x, top + room_height - 1, char)
+        world.add(wall)
+        walls.append(wall)
+    for y in range(top + 1, top + room_height - 1):
+        wall = Thing(left, y, char)
+        world.add(wall)
+        walls.append(wall)
+
+        wall = Thing(left + room_width - 1, y, char)
+        world.add(wall)
+        walls.append(wall)
+
+    # Add 1 to 4 doors
+    doors = random.randint(1,4)
+    while doors > 0:
+        i = random.randint(0, len(walls)-1)
+        wall = walls[i]
+        if wall.char == "+": continue
+        if wall.x == left: continue
+        if wall.x == left + room_height: continue
+        if wall.y == top: continue
+        if wall.y == top + room_height: continue
+        wall.char = "+"
+        doors -= 1
+
+
+
+
+# ================================================================================
 def whatsAt(x, y):
     for thing in world:
         if thing.x == x and thing.y == y:
@@ -84,9 +111,33 @@ def whatsAt(x, y):
 
 
 # ================================================================================
+def GetRoom(x, y):
+    for room in rooms:
+        if room.contains(x, y):
+            return room
+    return None
+
+
+
+# ================================================================================
+class Room:
+    def __init__(self, left, top, width, height):
+        self.left = left
+        self.top = top
+        self.width = width
+        self.height = height
+
+    def contains(self, x, y):
+        return x >= self.left and x <= self.left + self.width and y >= self.top and y <= self.top + self.height
+
+
+
+
+# ================================================================================
 class Thing(pygame.sprite.Sprite):
     '''
     A thing is an ASCII character that has a position in the world.
+    A position is (x,y) where x and y are integers (positive or negative with no bounds)
     It can be a player or a wall or potion or monster, etc.
     It has a position in the world.
     '''
@@ -94,18 +145,26 @@ class Thing(pygame.sprite.Sprite):
         super().__init__()
         self.w = SQUARE
         self.h = SQUARE
-        self.x = x
-        self.y = y
+        self.x = x # Grid X
+        self.y = y # Grid Y
         self.char = char
         self.surface = pygame.Surface((self.w, self.h))
         self.seen = False # Has this thing been seen before? Fog of war.
 
     def blit(self):
-        px = self.x * self.w
-        py = self.y * self.h
-        self.rect = self.surface.get_rect(center=(px, py))
-        text = font.render(sprite.char, True, white, black)
-        screen.blit(text, self.rect)
+        # Calc the relative grid position with respect to the player
+        rx = self.x - player.x
+        ry = self.y - player.y
+
+        # Calculate absolute position relative to the window where (0,0) is upper-left corner
+        ax = rx * SQUARE + int(WIDTH/2)
+        ay = ry * SQUARE + int(HEIGHT/2)
+
+        inside = ax >= 0 and ax <= WIDTH and ay >= 0 and ay <= WIDTH
+        if inside:
+            self.rect = self.surface.get_rect(center=(ax, ay))
+            text = font.render(sprite.char, True, white, black)
+            screen.blit(text, self.rect)
 
     def update(self):
         if self.seen or self.canSee(player):
@@ -119,50 +178,15 @@ class Thing(pygame.sprite.Sprite):
         '''
         Can this thing see that thing? Nothing in between?
         @that is the Thing that might be able to see this.
+        The rule is that we can see that if it is in the same room as us
+        or we have seen it before and it hasn't moved.
         '''
         assert(isinstance(that, Thing))
-        this = self
-        if this.x == that.x and this.y == that.y:
-            return True
-
-        if this.x == that.x:
-            dx = 0
-            dy = sign(that.y - this.y)
-        elif this.y == that.y:
-            dx = sign(that.x - this.x)
-            dy = 0
-        else:
-            dx = (that.x - this.x) / (that.y - this.y)
-            dy = 1 / dx
-
-        x = this.x
-        y = this.y
-
-        i = 0
-        while abs(x - that.x) > 1 or abs(y - that.y):
-            # Round down
-            nx = int(round(x + dx, 0))
-            ny = int(round(y + dy, 0))
-
-            # If there is something there, try looking around it.
-            if whatsAt(nx, ny):
-                # Round up.
-                nx = int(round(x + dx + 0.5, 0))
-                ny = int(round(y + dy + 0.5, 0))
-
-                # If there is something there, then we are blocked and cannot see that.
-                if whatsAt(nx, ny):
-                    return False
-            x += dx
-            y += dy
-            i += 1
-            if i > 1000:
-                return False
-
-        # We can see it!
         return True
 
-
+def say(s):
+    print(s)
+    sys.stdout.flush()
 
 
 class Player(Thing):
@@ -194,8 +218,21 @@ class Player(Thing):
                 dy = 1
             elif event.key == pygame.K_UP:
                 dy = -1
+            elif event.key == pygame.K_i:
+                say('''You're inventory is
+2 potions
+3 arrows
+''')
+            move = False
             thing = whatsAt(self.x + dx, self.y + dy)
             if not thing:
+                Move = True
+            else:
+                if thing.char == "+":
+                    # Take one imaginary step and see if you are in a room?
+                    room = GetRoom(self.x + dx + dx, self.y + dy + dy)
+
+            if Move:
                 self.x += dx
                 self.y += dy
 
@@ -203,7 +240,7 @@ class Player(Thing):
 
 
 # ================================================================================
-player = Player(20, 20)
+player = Player(0, 0)
 
 sprites = pygame.sprite.Group()
 sprites.add(player)
@@ -211,11 +248,11 @@ sprites.add(player)
 world = pygame.sprite.Group()
 
 # Draw a room around the player
-wall_width = 5
-wall_height = 5
-top = player.y - int(wall_height/2)
-left = player.x - int(wall_width/2)
-makeRoomRectangle(left, top, wall_width, wall_height)
+room_width = 15
+room_height = 7
+top = player.y - int(room_height/2)
+left = player.x - int(room_width/2)
+makeRoomRectangle(left, top, room_width, room_height)
 calcWindow()
 
 
