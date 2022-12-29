@@ -1,6 +1,14 @@
+import functools
+import math
 import sys
 import pygame
 from pygame.locals import *
+
+# sign(x) returns:
+#   -1 if x < 0
+#    0 if x = 0
+#    1 if x > 0
+sign = functools.partial(math.copysign, 1)
 
 pygame.init()
 
@@ -38,6 +46,19 @@ pygame.display.set_caption("Rogue-like Game")
 SQUARE = 16
 font = pygame.font.Font('arial.ttf', SQUARE)
 
+
+window = (0, 0, 0, 0)
+def calcWindow():
+    '''
+    Calculate the relative left, top, right, and bottom of the window
+    relative to the player so that we can quickly determine if a sprite
+    might be visible on the screen or not.
+    '''
+    left = player.x
+    top = player.x
+    right = player.x
+    bottom = player.x
+    window = (left, top, right, bottom)
 
 
 
@@ -77,6 +98,7 @@ class Thing(pygame.sprite.Sprite):
         self.y = y
         self.char = char
         self.surface = pygame.Surface((self.w, self.h))
+        self.seen = False # Has this thing been seen before? Fog of war.
 
     def blit(self):
         px = self.x * self.w
@@ -86,7 +108,59 @@ class Thing(pygame.sprite.Sprite):
         screen.blit(text, self.rect)
 
     def update(self):
-        self.blit()
+        if self.seen or self.canSee(player):
+            self.blit()
+
+    def insideWindow(self):
+        '''Return true only if the sprite is in the window.'''
+        return self.x >= window[0] and self.x <= window[2] and self.y >= window[1] and self.y <= window[3]
+
+    def canSee(self, that):
+        '''
+        Can this thing see that thing? Nothing in between?
+        @that is the Thing that might be able to see this.
+        '''
+        assert(isinstance(that, Thing))
+        this = self
+        if this.x == that.x and this.y == that.y:
+            return True
+
+        if this.x == that.x:
+            dx = 0
+            dy = sign(that.y - this.y)
+        elif this.y == that.y:
+            dx = sign(that.x - this.x)
+            dy = 0
+        else:
+            dx = (that.x - this.x) / (that.y - this.y)
+            dy = 1 / dx
+
+        x = this.x
+        y = this.y
+
+        i = 0
+        while abs(x - that.x) > 1 or abs(y - that.y):
+            # Round down
+            nx = int(round(x + dx, 0))
+            ny = int(round(y + dy, 0))
+
+            # If there is something there, try looking around it.
+            if whatsAt(nx, ny):
+                # Round up.
+                nx = int(round(x + dx + 0.5, 0))
+                ny = int(round(y + dy + 0.5, 0))
+
+                # If there is something there, then we are blocked and cannot see that.
+                if whatsAt(nx, ny):
+                    return False
+            x += dx
+            y += dy
+            i += 1
+            if i > 1000:
+                return False
+
+        # We can see it!
+        return True
 
 
 
@@ -99,6 +173,7 @@ class Player(Thing):
     def __init__(self, x, y):
         super().__init__(x, y, "@")
         self.inventory = {}
+        self.seen = True # We can see ourself
 
     def addItem(self, name):
         '''Add a named-item to the inventory. If it already exists, then increment its count.'''
@@ -141,7 +216,7 @@ wall_height = 5
 top = player.y - int(wall_height/2)
 left = player.x - int(wall_width/2)
 makeRoomRectangle(left, top, wall_width, wall_height)
-
+calcWindow()
 
 
 # ================================================================================
@@ -156,9 +231,9 @@ while True:
     screen.fill(black)
 
     for sprite in sprites:
-        sprite.blit()
+        sprite.update()
     for sprite in world:
-        sprite.blit()
+        sprite.update()
 
     pygame.display.update()
     FramePerSec.tick(FPS)
