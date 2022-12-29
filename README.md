@@ -1,3 +1,3 @@
 # Rogue-like Game
 
-A Python-based roguelike game for experiment.
+A Python 3.10-based rogue-like game for fun.
