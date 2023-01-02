@@ -1,9 +1,20 @@
+import functools
+import math
 import datetime
 import unittest
 import os
 import yaml
 from fluid import Fluid
 from dateutil.parser import parse
+
+
+
+# sign(x) returns:
+#   -1 if x < 0
+#    0 if x = 0
+#    1 if x > 0
+sign = functools.partial(math.copysign, 1)
+
 
 def subloadYaml(data):
   '''
