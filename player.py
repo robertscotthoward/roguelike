@@ -30,16 +30,23 @@ class Player(Entity):
 2 potions
 3 arrows
 ''')
+                return
+            elif event.key == pygame.K_F10:
+                say('''THINGS:''')
+                for thing in self.world.sprites:
+                    say(f"{thing.char} {thing.x:>3},{thing.y:>3}")
+                for thing in self.world.things:
+                    say(f"{thing.char} {thing.x:>3},{thing.y:>3}")
+                return
             move = False
-
             thing = self.GetThingInFront()
             if not thing:
-                Move = True
+                move = True
             else:
                 # Are we trying to step onto a door?
                 if thing.char == "+":
                     # Yes.
-                    Move = True
+                    move = True
                     # Then move another imaginary step and see what room that would be?
                     room = self.GetRoomInFront(2)
                     if not room:
@@ -60,7 +67,9 @@ class Player(Entity):
 
                         for (x,y,c) in turtle.stamps:
                             self.world.addThing(x,y,c)
+                if thing.char == "#":
+                    pass # Do nothing. Don't move.
 
-            if Move:
+            if move:
                 self.x += self.dx
                 self.y += self.dy

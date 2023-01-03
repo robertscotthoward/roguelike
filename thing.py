@@ -34,6 +34,7 @@ class Thing(pygame.sprite.Sprite):
         Given the direction we are facing, take n steps and return what is there, if anything.
         '''
         thing = self.world.whatsAt(self.x + self.dx*steps, self.y + self.dy*steps)
+        return thing
 
     def GetRoomInFront(self, steps=1):
         '''
@@ -41,6 +42,7 @@ class Thing(pygame.sprite.Sprite):
         Return None if no room exists at that point.
         '''
         thing = self.world.GetRoom(self.x + self.dx*steps, self.y + self.dy*steps)
+        return thing
 
     def blit(self):
         # Calc the relative grid position with respect to the player

@@ -117,6 +117,9 @@ class World():
         for thing in self.things:
             if thing.x == x and thing.y == y:
                 return thing
+        for thing in self.sprites:
+            if thing.x == x and thing.y == y:
+                return thing
         return None
 
 
